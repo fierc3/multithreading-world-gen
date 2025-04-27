@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -198,50 +198,26 @@ public class ChunkMeshCreator
         List<Vector2> UVs = new List<Vector2>();
         Mesh m = new Mesh();
 
-        Task t = Task.Factory.StartNew(delegate
+
+        // Don't remove this if your Laptop is Powerful, this will make the FPS drop more noticable. Include this in your Multithreaded code to test, your fps should be high even with this sleep.
+        System.Threading.Thread.Sleep(10);
+
+        for (int x = 0; x < WorldGenerator.ChunkSize.x; x++)
         {
-            for (int x = 0; x < WorldGenerator.ChunkSize.x; x++)
+            for (int y = 0; y < WorldGenerator.ChunkSize.y; y++)
             {
-                for (int y = 0; y < WorldGenerator.ChunkSize.y; y++)
+                for (int z = 0; z < WorldGenerator.ChunkSize.z; z++)
                 {
-                    for (int z = 0; z < WorldGenerator.ChunkSize.z; z++)
+                    Vector3Int BlockPos = new Vector3Int(x, y, z);
+
+                    for (int i = 0; i < CheckDirections.Length; i++)
                     {
-                        Vector3Int BlockPos = new Vector3Int(x, y, z);
-                        for (int i = 0; i < CheckDirections.Length; i++)
+                        Vector3Int BlockToCheck = BlockPos + CheckDirections[i];
+
+                        try
                         {
-                            Vector3Int BlockToCheck = BlockPos + CheckDirections[i];
-
-                            try
+                            if (Data[BlockToCheck.x, BlockToCheck.y, BlockToCheck.z] == 0)
                             {
-                                if (Data[BlockToCheck.x, BlockToCheck.y, BlockToCheck.z] == 0)
-                                {
-                                    if (Data[BlockPos.x, BlockPos.y, BlockPos.z] != 0)
-                                    {
-                                        int CurrentBlockID = Data[BlockPos.x, BlockPos.y, BlockPos.z];
-                                        TextureLoader.CubeTexture TextureToApply = TextureLoaderInstance.Textures[CurrentBlockID];
-                                        FaceData FaceToApply = CubeFaces[CheckDirections[i]];
-
-                                        foreach (Vector3 vert in FaceToApply.Vertices)
-                                        {
-                                            Vertices.Add(new Vector3(x, y, z) + vert);
-                                        }
-
-                                        foreach (int tri in FaceToApply.Indices)
-                                        {
-                                            Indices.Add(Vertices.Count - 4 + tri);
-                                        }
-
-                                        Vector2[] UVsToAdd = TextureToApply.GetUVsAtDirectionT(CheckDirections[i]);
-                                        foreach (int UVIndex in FaceToApply.UVIndexOrder)
-                                        {
-                                            UVs.Add(UVsToAdd[UVIndex]);
-                                        }
-                                    }
-                                }
-                            }
-                            catch (System.Exception)
-                            {
-                                //Draws faces towards the outside of the data
                                 if (Data[BlockPos.x, BlockPos.y, BlockPos.z] != 0)
                                 {
                                     int CurrentBlockID = Data[BlockPos.x, BlockPos.y, BlockPos.z];
@@ -266,18 +242,37 @@ public class ChunkMeshCreator
                                 }
                             }
                         }
+                        catch (System.Exception)
+                        {
+                            if (Data[BlockPos.x, BlockPos.y, BlockPos.z] != 0)
+                            {
+                                int CurrentBlockID = Data[BlockPos.x, BlockPos.y, BlockPos.z];
+                                TextureLoader.CubeTexture TextureToApply = TextureLoaderInstance.Textures[CurrentBlockID];
+                                FaceData FaceToApply = CubeFaces[CheckDirections[i]];
+
+                                foreach (Vector3 vert in FaceToApply.Vertices)
+                                {
+                                    Vertices.Add(new Vector3(x, y, z) + vert);
+                                }
+
+                                foreach (int tri in FaceToApply.Indices)
+                                {
+                                    Indices.Add(Vertices.Count - 4 + tri);
+                                }
+
+                                Vector2[] UVsToAdd = TextureToApply.GetUVsAtDirectionT(CheckDirections[i]);
+                                foreach (int UVIndex in FaceToApply.UVIndexOrder)
+                                {
+                                    UVs.Add(UVsToAdd[UVIndex]);
+                                }
+                            }
+                        }
                     }
                 }
             }
-        });
+        }
 
-        yield return new WaitUntil(() => {
-            return t.IsCompleted || t.IsCanceled;
-        });
-
-        if (t.Exception != null)
-            Debug.LogError(t.Exception);
-
+        // 💥 Now the mesh is filled, continue
         m.SetVertices(Vertices);
         m.SetIndices(Indices, MeshTopology.Triangles, 0);
         m.SetUVs(0, UVs);
@@ -287,5 +282,8 @@ public class ChunkMeshCreator
         m.RecalculateNormals();
 
         callback(m);
+
+        yield break; // Coroutine is done
     }
+
 }
